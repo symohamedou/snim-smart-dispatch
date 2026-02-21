@@ -1,0 +1,8 @@
+# Complet pour l'app mobile (usage local)
+streamlit
+opencv-python
+pandas
+numpy
+ultralytics
+easyocr
+openpyxl

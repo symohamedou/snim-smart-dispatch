@@ -26,6 +26,32 @@ def charger_toutes_donnees():
     conn.close()
     return df
 
+def generer_donnees_demo():
+    """Génère des données de démo pour tester le dashboard (ex: déploiement Streamlit Cloud)."""
+    import random
+    conn = sqlite3.connect(FICHIER_DB)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS detections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT, heure TEXT, camion TEXT, nature TEXT, point TEXT,
+            site TEXT, tonnage INTEGER, shift TEXT, sync INTEGER DEFAULT 0, created_at TEXT
+        )
+    """)
+    sites = ["Guelb El Rhein", "M'Haoudat", "TO14", "Tazadit"]
+    shifts = ["Matin", "Soir", "Nuit"]
+    natures = ["VIDE", "RICHE", "STERILE", "MIXTE"]
+    for i in range(50):
+        jours = random.randint(0, 7)
+        dt = datetime.now() - timedelta(days=jours, hours=random.randint(0, 12))
+        conn.execute(
+            """INSERT INTO detections (date, heure, camion, nature, point, site, tonnage, shift, sync, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+            (dt.strftime("%Y-%m-%d"), dt.strftime("%H:%M:%S"), str(random.randint(100, 999)),
+             random.choice(natures), "Demo", random.choice(sites), 200, random.choice(shifts),
+             dt.strftime("%Y-%m-%d %H:%M:%S"))
+    conn.commit()
+    conn.close()
+
 # --- Page config ---
 st.set_page_config(
     page_title="SNIM Dashboard | Supervision",
@@ -46,7 +72,11 @@ with st.sidebar:
     df_raw = charger_toutes_donnees()
     
     if df_raw.empty:
-        st.warning("Aucune donnée pour le moment. Lancez l'app mobile pour collecter des détections.")
+        st.warning("Aucune donnée pour le moment.")
+        if st.button("📥 Charger des données de démo"):
+            generer_donnees_demo()
+            st.rerun()
+        st.info("Lancez l'app mobile sur le terrain pour collecter des détections réelles.")
         st.stop()
     
     # Convertir date pour filtrage

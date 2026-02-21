@@ -13,4 +13,4 @@ streamlit run dashboard_snim.py
 
 - `app_snim_mobile.py` — App terrain (caméra + détection IA)
 - `dashboard_snim.py` — Tableau de bord de supervision
-- `best_float32.tflite` — Modèle YOLO (à placer dans ce dossier)
+- `best_float32.tflite` — Modèle YOLO (à placer dans ce dossier, non inclus dans Git)

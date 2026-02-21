@@ -35,3 +35,16 @@ git push -u origin main
 ```
 
 Remplacez `VOTRE_USER` par votre nom d’utilisateur GitHub.
+
+---
+
+## Cloner le projet sur un autre PC
+
+Une fois le projet sur GitHub, pour le recuperer ailleurs :
+
+```powershell
+git clone https://github.com/VOTRE_USER/snim-smart-dispatch.git
+cd snim-smart-dispatch
+``` 
+
+Pensez a copier best_float32.tflite dans le dossier (il n'est pas sur GitHub).

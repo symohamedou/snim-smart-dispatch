@@ -1,7 +1,3 @@
+# Minimal pour le tableau de bord (Streamlit Cloud)
 streamlit
-opencv-python
 pandas
-numpy
-ultralytics
-easyocr
-openpyxl
