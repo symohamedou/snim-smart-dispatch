@@ -4,9 +4,16 @@ Application de supervision pour dispatchers miniers — détection de camions pa
 
 ## Démarrage rapide
 
+**Tableau de bord :**
 ```bash
 pip install -r requirements.txt
 streamlit run dashboard_snim.py
+```
+
+**App mobile (caméra) :**
+```bash
+pip install -r requirements-full.txt
+streamlit run app_snim_mobile.py
 ```
 
 ## Fichiers

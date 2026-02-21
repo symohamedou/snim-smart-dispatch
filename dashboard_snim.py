@@ -213,7 +213,7 @@ if not df_affichage.empty:
     
     # Export
     st.download_button(
-        "📥 Exporter en Excel",
+        "📥 Exporter en CSV",
         data=pd.DataFrame(df_affichage).to_csv(index=False).encode("utf-8-sig"),
         file_name=f"snim_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
         mime="text/csv"

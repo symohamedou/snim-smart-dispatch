@@ -12,7 +12,8 @@ import time
 import sqlite3
 
 # --- 0. MODE HORS-LIGNE : Stockage local SQLite ---
-FICHIER_DB = "snim_detections.db"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+FICHIER_DB = os.path.join(SCRIPT_DIR, "snim_detections.db")
 
 def init_db():
     """Crée la base de données locale si elle n'existe pas."""
@@ -82,6 +83,7 @@ try:
     model, reader = initialiser_ia()
 except Exception as e:
     st.error(f"Erreur : Assure-toi que 'best_float32.tflite' est dans le même dossier que ce script.")
+    st.stop()
 
 # --- 3. INTERFACE DISPATCHER (IDENTIQUE) ---
 st.set_page_config(page_title="SNIM SMART DISPATCH | MOBILE", layout="wide")
@@ -118,9 +120,11 @@ def traiter_image(frame, site, poste, nom_camera):
         return [], frame
 
     # Utilisation du modèle TFLite (imgsz=640 car c'est ton format d'export)
-    results = model.predict(frame, conf=seuil_conf, imgsz=640, verbose=False) 
+    results = model.predict(frame, conf=seuil_conf, imgsz=640, verbose=False)
     donnees = []
-    
+    if not results:
+        return [], frame
+
     for result in results:
         for box in result.boxes:
             label = model.names[int(box.cls[0])]
@@ -144,7 +148,8 @@ def traiter_image(frame, site, poste, nom_camera):
                                 "Camion": num, "Nature": label.upper(),
                                 "Point": nom_camera, "Site": site, "Tonnage": 200, "Shift": poste
                             })
-    return donnees, results[0].plot()
+    plot_img = results[0].plot() if results else frame
+    return donnees, plot_img
 
 # --- 5. AFFICHAGE ---
 st.title(f"📊 Supervision Mobile : {site_actuel}")
