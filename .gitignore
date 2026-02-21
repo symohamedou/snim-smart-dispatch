@@ -1,0 +1,15 @@
+# Base de données (données locales)
+snim_detections.db
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Modèle IA (trop volumineux pour GitHub - à télécharger séparément)
+best_float32.tflite
