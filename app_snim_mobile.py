@@ -8,12 +8,13 @@ import io
 import easyocr
 import re
 import os
-import time
 import sqlite3
 import queue
 import threading
 import av
 from streamlit_webrtc import webrtc_streamer
+
+st.set_page_config(page_title="SNIM SMART DISPATCH | MOBILE", layout="wide")
 
 # --- 0. MODE HORS-LIGNE : Stockage local SQLite ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -85,13 +86,11 @@ def initialiser_ia():
 
 try:
     model, reader = initialiser_ia()
-except Exception as e:
+except Exception:
     st.error(f"Erreur : Assure-toi que 'best_float32.tflite' est dans le même dossier que ce script.")
     st.stop()
 
-# --- 3. INTERFACE DISPATCHER (IDENTIQUE) ---
-st.set_page_config(page_title="SNIM SMART DISPATCH | MOBILE", layout="wide")
-
+# --- 3. INTERFACE DISPATCHER ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/Logo_SNIM.svg/1200px-Logo_SNIM.svg.png", width=180)
     st.title("🛰️ Smart Operations")
