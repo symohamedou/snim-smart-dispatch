@@ -1,3 +1,8 @@
-# Minimal pour le tableau de bord (Streamlit Cloud)
 streamlit
+opencv-python-headless
 pandas
+numpy
+ultralytics
+easyocr
+openpyxl
+tensorflow
