@@ -10,6 +10,10 @@ import re
 import os
 import time
 import sqlite3
+import queue
+import threading
+import av
+from streamlit_webrtc import webrtc_streamer
 
 # --- 0. MODE HORS-LIGNE : Stockage local SQLite ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -74,7 +78,7 @@ LISTE_CAMERAS = {
 @st.cache_resource
 def initialiser_ia():
     # On pointe sur le fichier que je vois dans ton dossier
-    chemin_model = "best_float32.tflite" 
+    chemin_model = os.path.join(SCRIPT_DIR, "best_float32.tflite") 
     model_yolo = YOLO(chemin_model, task='detect')
     reader_ocr = easyocr.Reader(['en'], gpu=False)
     return model_yolo, reader_ocr
@@ -111,26 +115,23 @@ if 'frame_count' not in st.session_state:
     st.session_state.frame_count = 0
 
 # --- 4. LOGIQUE DE TRAITEMENT ---
-def traiter_image(frame, site, poste, nom_camera):
-    st.session_state.frame_count += 1
-    maintenant = datetime.now()
-    
-    # On saute 3 images sur 4 pour que le téléphone reste fluide (CPU)
-    if st.session_state.frame_count % 4 != 0:
-        return [], frame
+DETECTION_QUEUE = queue.Queue()
+FRAME_SKIP = 4
+_frame_count = [0]
+_lock = threading.Lock()
 
-    # Utilisation du modèle TFLite (imgsz=640 car c'est ton format d'export)
-    results = model.predict(frame, conf=seuil_conf, imgsz=640, verbose=False)
+def traiter_frame_webrtc(frame_bgr, site, poste):
+    """Version pour callback WebRTC (thread-safe, pas de session_state)."""
+    results = model.predict(frame_bgr, conf=seuil_conf, imgsz=640, verbose=False)
     donnees = []
     if not results:
-        return [], frame
-
+        return [], frame_bgr
     for result in results:
         for box in result.boxes:
             label = model.names[int(box.cls[0])]
             if label in ["vide", "riche", "sterile", "mixte"]:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-                crop = frame[y1:y2, x1:x2]
+                crop = frame_bgr[y1:y2, x1:x2]
                 if crop.size > 0:
                     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
                     ocr_res = reader.readtext(gray, allowlist='0123456789')
@@ -138,42 +139,53 @@ def traiter_image(frame, site, poste, nom_camera):
                     for res in ocr_res:
                         match = re.search(r'\d{3}', res[1])
                         if match: num = match.group(); break
-                    
                     if num != "N/A":
-                        if num not in st.session_state.last_detections or \
-                           maintenant > st.session_state.last_detections[num] + timedelta(minutes=5):
-                            st.session_state.last_detections[num] = maintenant
-                            donnees.append({
-                                "Heure": maintenant.strftime("%H:%M:%S"),
-                                "Camion": num, "Nature": label.upper(),
-                                "Point": nom_camera, "Site": site, "Tonnage": 200, "Shift": poste
-                            })
-    plot_img = results[0].plot() if results else frame
+                        donnees.append({
+                            "Heure": datetime.now().strftime("%H:%M:%S"),
+                            "Camion": num, "Nature": label.upper(),
+                            "Point": "Mobile", "Site": site, "Tonnage": 200, "Shift": poste
+                        })
+    plot_img = results[0].plot() if results else frame_bgr
     return donnees, plot_img
+
+def video_frame_callback(frame):
+    with _lock:
+        _frame_count[0] += 1
+        skip = _frame_count[0] % FRAME_SKIP != 0
+    if skip:
+        return frame
+    img = frame.to_ndarray(format="bgr24")
+    data, plot = traiter_frame_webrtc(img, site_actuel, poste_actuel)
+    if data:
+        for d in data:
+            DETECTION_QUEUE.put_nowait(d)
+    return av.VideoFrame.from_ndarray(plot, format="bgr24")
+
+# Traiter les détections en attente (depuis le callback)
+while not DETECTION_QUEUE.empty():
+    try:
+        d = DETECTION_QUEUE.get_nowait()
+        maintenant = datetime.now()
+        if d["Camion"] not in st.session_state.last_detections or \
+           maintenant > st.session_state.last_detections[d["Camion"]] + timedelta(minutes=5):
+            st.session_state.last_detections[d["Camion"]] = maintenant
+            sauvegarder_detection(d)
+            st.session_state.data_log.append(d)
+    except queue.Empty:
+        break
 
 # --- 5. AFFICHAGE ---
 st.title(f"📊 Supervision Mobile : {site_actuel}")
 col_v, col_s = st.columns([2, 1])
 
 with col_v:
-    st_frame = st.empty()
-    if st.button("🚀 LANCER LA CAMÉRA"):
-        cap = cv2.VideoCapture(0) # Accès caméra Android
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret: break
-            
-            data, plot = traiter_image(frame, site_actuel, poste_actuel, "Android_Internal")
-            if data:
-                for d in data:
-                    sauvegarder_detection(d)  # Sauvegarde locale immédiate
-                st.session_state.data_log.extend(data)
-            
-            st_frame.image(cv2.cvtColor(plot, cv2.COLOR_BGR2RGB), use_container_width=True)
-            
-        cap.release()
+    # Caméra arrière iPhone (facingMode: environment) + temps réel
+    webrtc_streamer(
+        key="cam",
+        video_frame_callback=video_frame_callback,
+        media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
+        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+    )
 
 # --- 6. ANALYSE + EXPORT ---
 if st.session_state.data_log:
