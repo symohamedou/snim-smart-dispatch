@@ -6,3 +6,5 @@ ultralytics
 easyocr
 openpyxl
 tensorflow
+av
+streamlit-webrtc
